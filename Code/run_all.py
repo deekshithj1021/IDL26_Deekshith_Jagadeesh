@@ -11,22 +11,18 @@ from fit import Trainer
 
 # ── All configurations to run ──────────────────────────────────────────────
 CONFIGS = [
-    # {"MODEL": "ResNet18", "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 10},
-    # {"MODEL": "ResNet18", "DATA": "chest",   "CHANNELS": 1, "NUM_CLASSES": 2,  "EPOCHS": 10},
-    # {"MODEL": "ResNet18", "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 10},
-    # {"MODEL": "ResNet18", "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 10},
-    # {"MODEL": "VGG16",    "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 10},
-    # {"MODEL": "VGG16",    "DATA": "chest",   "CHANNELS": 1, "NUM_CLASSES": 2,  "EPOCHS": 10},
-    # {"MODEL": "VGG16",    "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 10},
-    # {"MODEL": "VGG16",    "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 10},
-    #{"MODEL": "AlexNet",  "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 10},
-    #{"MODEL": "AlexNet",  "DATA": "chest",   "CHANNELS": 1, "NUM_CLASSES": 2,  "EPOCHS": 10},
-    #{"MODEL": "AlexNet",  "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 10},
-    #{"MODEL": "AlexNet",  "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 10},
-
-    {"MODEL": "ResNet18", "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 20},
-    {"MODEL": "AlexNet",  "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 20},
-
+    {"MODEL": "ResNet18", "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 30},
+    {"MODEL": "ResNet18", "DATA": "chest",   "CHANNELS": 1, "NUM_CLASSES": 2,  "EPOCHS": 30},
+    {"MODEL": "ResNet18", "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 30},
+    {"MODEL": "ResNet18", "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 30},
+    {"MODEL": "VGG16",    "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 30},
+    {"MODEL": "VGG16",    "DATA": "chest",   "CHANNELS": 1, "NUM_CLASSES": 2,  "EPOCHS": 30},
+    {"MODEL": "VGG16",    "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 30},
+    {"MODEL": "VGG16",    "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 30},
+    {"MODEL": "AlexNet",  "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 30},
+    {"MODEL": "AlexNet",  "DATA": "chest",   "CHANNELS": 1, "NUM_CLASSES": 2,  "EPOCHS": 30},
+    {"MODEL": "AlexNet",  "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 30},
+    {"MODEL": "AlexNet",  "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 30},
 ]
 
 # ── Shared settings ─────────────────────────────────────────────────────────
@@ -73,7 +69,7 @@ for cfg in CONFIGS:
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     # Train
-    trainer = Trainer(model, criterion, optimizer, device)
+    trainer = Trainer(model, criterion, optimizer, device, patience=5)
     trainer.fit(train_loader, val_loader, epochs=cfg["EPOCHS"])
 
     # Evaluate on test set
