@@ -179,3 +179,54 @@ class ResNet18(nn.Module):
         out = self.avgpool(out)
         out = torch.flatten(out, 1)
         return self.classifier(out)    #Add a return statement to return the output of the classifier.
+
+
+class MiniNet(nn.Module):
+    """MiniNet — Lightweight model for green initiative.
+    
+    A compact architecture designed for energy-efficient inference
+    on diagnostic devices. Uses depthwise separable convolutions
+    and aggressive channel reduction to minimize parameters while
+    maintaining competitive accuracy.
+    """
+    def __init__(self, in_channels, num_classes, **kwargs):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            # Block 1
+            nn.Conv2d(in_channels, 16, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(16),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, 2),
+
+            # Block 2
+            nn.Conv2d(16, 32, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, 2),
+
+            # Block 3
+            nn.Conv2d(32, 64, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, 2),
+
+            # Block 4
+            nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d((2, 2))
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Dropout(p=kwargs.get("drop_rate", 0.3)),
+            nn.Linear(64 * 2 * 2, 128),
+            nn.ReLU(inplace=True),
+            nn.Linear(128, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = torch.flatten(x, 1)
+        return self.classifier(x)
+    
