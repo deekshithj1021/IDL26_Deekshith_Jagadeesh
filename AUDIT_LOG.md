@@ -6,7 +6,7 @@
 ---
 
 ## Summary
-A total of 8 bugs were identified and neutralized across 4 recovered source files.
+A total of 10 bugs were identified and neutralized across 4 recovered source files.
 The bugs span all four failure categories identified by the forensic team:
 crashing errors, silent logical flaws, numerical/gradient failures,
 and rigid infrastructure issues.
@@ -15,18 +15,18 @@ and rigid infrastructure issues.
 
 ## Bug Table
 
-| # | File | Bug Type | How It Manifests |
-|---|------|----------|-----------------|
-| 1 | fit.py | Gradient Failure | Loss explodes, model never converges |
-| 2 | data.py | Silent Logical Flaw | Validation data leaks into training set |
-| 3 | data.py | Runtime Crash | Labels have wrong shape, CrossEntropyLoss crashes |
-| 4 | models.py | Numerical Failure | Identity activation kills all non-linearity |
-| 5 | models.py | Silent Bug | ResNet18 forward() returns None |
-| 6 | models.py | Runtime Crash | Wrong padding on 1x1 convolution in VGGBlock |
-| 7 | train.py | Runtime Crash | AlexNet ignores in_channels and num_classes |
-| 8 | train.py | Rigid Infrastructure | Hardcoded drop_rate=0.99, missing config.json |
-| 9 | models.py | Runtime Crash | VGGBlock never updates current_in_channels |
-| 10 | models.py | Runtime Crash | AlexNet classifier hardcoded wrong input size |
+| # | File | Bug Type | How It Manifests | Commit |
+|---|------|----------|-----------------|--------|
+| 1 | fit.py | Gradient Failure | Loss explodes, model never converges | bc4a616 |
+| 2 | data.py | Silent Logical Flaw | Validation data leaks into training set | bc4a616 |
+| 3 | data.py | Runtime Crash | Labels have wrong shape, CrossEntropyLoss crashes | bc4a616 |
+| 4 | models.py | Numerical Failure | Identity activation kills all non-linearity | bc4a616 |
+| 5 | models.py | Silent Bug | ResNet18 forward() returns None | bc4a616 |
+| 6 | models.py | Runtime Crash | Wrong padding on 1x1 convolution in VGGBlock | bc4a616 |
+| 7 | models.py | Runtime Crash | VGGBlock never updates current_in_channels | 9c45dc9 |
+| 8 | models.py | Runtime Crash | AlexNet classifier hardcoded wrong input size | 181f522 |
+| 9 | train.py | Runtime Crash | AlexNet ignores in_channels and num_classes | bc4a616 |
+| 10 | train.py | Rigid Infrastructure | Hardcoded drop_rate=0.99, missing config.json | bc4a616 |
 
 ---
 
@@ -36,7 +36,8 @@ and rigid infrastructure issues.
 
 ### BUG 01 — Missing `zero_grad()` in Training Loop
 **File:** `fit.py`  
-**Function:** `train_one_epoch()`
+**Function:** `train_one_epoch()`  
+**Commit:** `bc4a616`
 
 **How it manifests:**
 Gradients accumulate across every batch instead of being reset.
@@ -68,7 +69,8 @@ self.optimizer.step()
 
 ### BUG 02 — Validation Data Leaks Into Training Set
 **File:** `data.py`  
-**Function:** `get_loaders()`
+**Function:** `get_loaders()`  
+**Commit:** `bc4a616`
 
 **How it manifests:**
 The model silently trains on validation data. Validation
@@ -99,7 +101,8 @@ train_labels = data_dict['train_labels'][:val_start]
 
 ### BUG 03 — Wrong Label Shape Causes CrossEntropyLoss Crash
 **File:** `data.py`  
-**Function:** `get_loaders()`
+**Function:** `get_loaders()`  
+**Commit:** `bc4a616`
 
 **How it manifests:**
 RuntimeError: `0D or 1D target tensor expected,
@@ -119,16 +122,21 @@ the redundant dimension.
 ```python
 # Before (broken)
 train_labels = data_dict['train_labels'][:val_start]
+val_labels   = data_dict['train_labels'][val_start:]
+test_labels  = data_dict['test_labels']
 
 # After (fixed)
 train_labels = data_dict['train_labels'][:val_start].squeeze(1)
+val_labels   = data_dict['train_labels'][val_start:].squeeze(1)
+test_labels  = data_dict['test_labels'].squeeze(1)
 ```
 
 ---
 
 ### BUG 04 — Identity Activation Kills Network Learning
 **File:** `models.py`  
-**Global variable:** `activation_str`
+**Global variable:** `activation_str`  
+**Commit:** `bc4a616`
 
 **How it manifests:**
 ResNet18 trains without crashing but learns nothing.
@@ -158,7 +166,8 @@ activation_str = "ReLU"
 ### BUG 05 — ResNet18 forward() Returns None
 **File:** `models.py`  
 **Class:** `ResNet18`  
-**Function:** `forward()`
+**Function:** `forward()`  
+**Commit:** `bc4a616`
 
 **How it manifests:**
 Silent bug — no crash but the model outputs None instead
@@ -186,7 +195,8 @@ return self.classifier(out)
 ### BUG 06 — Wrong Padding on 1x1 Convolution in VGGBlock
 **File:** `models.py`  
 **Class:** `VGGBlock`  
-**Function:** `__init__()`
+**Function:** `__init__()`  
+**Commit:** `bc4a616`
 
 **How it manifests:**
 RuntimeError: tensor shape mismatch in deeper VGG layers.
@@ -217,9 +227,78 @@ layers.append(nn.Conv2d(current_in_channels, out_channels,
 
 ---
 
-### BUG 07 — AlexNet Ignores in_channels and num_classes
+### BUG 07 — VGGBlock Does Not Update Channel Count Between Convolutions
+**File:** `models.py`  
+**Class:** `VGGBlock`  
+**Function:** `__init__()`  
+**Commit:** `9c45dc9`
+
+**How it manifests:**
+RuntimeError on first VGG16 forward pass — channel mismatch
+between consecutive conv layers inside the same VGGBlock.
+
+**Root Cause:**
+`current_in_channels` is initialized to `in_channels` before
+the loop but never updated after each conv layer. So conv2
+and conv3 inside the block still expect the original input
+channels instead of `out_channels` from the previous conv.
+This breaks every multi-conv VGG block.
+
+**Fix:**
+Added one line at the end of the loop body to update
+the channel count after each conv layer.
+
+```python
+# Before (broken)
+layers.append(nn.Conv2d(current_in_channels, out_channels, ...))
+layers.append(nn.BatchNorm2d(out_channels))
+layers.append(nn.ReLU(inplace=True))
+# current_in_channels never updated
+
+# After (fixed)
+layers.append(nn.Conv2d(current_in_channels, out_channels, ...))
+layers.append(nn.BatchNorm2d(out_channels))
+layers.append(nn.ReLU(inplace=True))
+current_in_channels = out_channels
+```
+
+---
+
+### BUG 08 — AlexNet Classifier Input Size Hardcoded Wrong
+**File:** `models.py`  
+**Class:** `AlexNet`  
+**Function:** `__init__()`  
+**Commit:** `181f522`
+
+**How it manifests:**
+RuntimeError: linear input and weight shapes cannot be
+multiplied. AlexNet crashes on first forward pass for
+all datasets.
+
+**Root Cause:**
+The first Linear layer in AlexNet's classifier hardcodes
+`2048` as the input size. But for 64x64 input images,
+the actual flattened feature size after the conv layers
+is `3072` (192 channels x 4 x 4 spatial).
+The wrong number causes an immediate shape mismatch crash.
+
+**Fix:**
+Changed the hardcoded `2048` to the correct value `3072`.
+
+```python
+# Before (broken)
+nn.Linear(2048, 1024)
+
+# After (fixed)
+nn.Linear(3072, 1024)
+```
+
+---
+
+### BUG 09 — AlexNet Ignores in_channels and num_classes
 **File:** `models.py` and `train.py`  
-**Class:** `AlexNet`
+**Class:** `AlexNet`  
+**Commit:** `bc4a616`
 
 **How it manifests:**
 AlexNet always uses 3 input channels and 11 output classes
@@ -251,8 +330,9 @@ def __init__(self, in_channels, num_classes, **kwargs):
 
 ---
 
-### BUG 08 — Hardcoded drop_rate and Missing config.json
-**File:** `train.py`
+### BUG 10 — Hardcoded drop_rate=0.99 and Missing config.json
+**File:** `train.py`  
+**Commit:** `bc4a616`
 
 **How it manifests:**
 `drop_rate=0.99` drops 99% of neurons making the network
@@ -280,95 +360,64 @@ model = model_class(..., drop_rate=config["DROP_RATE"])
 
 ---
 
----
-
-### BUG 09 — VGGBlock Does Not Update Channel Count Between Convolutions
-**File:** `models.py`  
-**Class:** `VGGBlock`  
-**Function:** `__init__()`
-
-**How it manifests:**
-RuntimeError on first VGG16 forward pass — channel mismatch between
-consecutive conv layers inside the same VGGBlock.
-
-**Root Cause:**
-`current_in_channels` is initialized to `in_channels` before the loop
-but never updated after each conv layer. So conv2 and conv3 inside the
-block still expect the original input channels instead of `out_channels`
-from the previous conv. This breaks every multi-conv VGG block.
-
-**Fix:**
-Added one line at the end of the loop body to update the channel count.
-
-```python
-# Before (broken)
-layers.append(nn.Conv2d(current_in_channels, out_channels, ...))
-layers.append(nn.BatchNorm2d(out_channels))
-layers.append(nn.ReLU(inplace=True))
-# current_in_channels never updated
-
-# After (fixed)
-layers.append(nn.Conv2d(current_in_channels, out_channels, ...))
-layers.append(nn.BatchNorm2d(out_channels))
-layers.append(nn.ReLU(inplace=True))
-current_in_channels = out_channels  # ← one line added
-```
-
----
-
-### BUG 10 — AlexNet Classifier Input Size Hardcoded Wrong
-**File:** `models.py`  
-**Class:** `AlexNet`  
-**Function:** `__init__()`
-
-**How it manifests:**
-RuntimeError: linear input and weight shapes cannot be multiplied.
-AlexNet crashes on first forward pass for all datasets.
-
-**Root Cause:**
-The first Linear layer in AlexNet's classifier hardcodes `2048` as the
-input size. But for 64x64 input images, the actual flattened feature
-size after the conv layers is `3072` (192 channels × 4 × 4 spatial).
-The wrong number causes an immediate shape mismatch crash.
-
-**Fix:**
-Changed the hardcoded `2048` to the correct value `3072`.
-
-```python
-# Before (broken)
-nn.Linear(2048, 1024)
-
-# After (fixed)
-nn.Linear(3072, 1024)
-```
-
 ## Required Accuracy Targets
 
-| Dataset | Required | Achieved |
-|---------|----------|---------|
-| cells   | 90%      | 95.97%  |
-| chest   | 87%      | TBD     |
-| lesions | 67%      | TBD     |
-| orgs    | 83%      | TBD     |
-
+| Dataset | Required | Achieved | Best Model |
+|---------|----------|----------|------------|
+| cells   | 90%      | 95.50%   | AlexNet    |
+| chest   | 87%      | 88.14%   | AlexNet    |
+| lesions | 67%      | 73.42%   | VGG16      |
+| orgs    | 83%      | 91.24%   | VGG16      |
 
 ---
 
 ## Code Improvements (Beyond Bug Fixes)
 
 ### IMPROVEMENT 01 — Early Stopping and Best Weight Restoration
-**File:** `fit.py`
+**File:** `fit.py`  
+**Commit:** `b22a8f9`
 
 **Justification:**
-Without early stopping, training continued past the optimal validation
-accuracy and restored degraded weights at the final epoch. In testing,
-ResNet18 on cells achieved 97.59% val accuracy at epoch 17 but ended
-at 75.20% at epoch 20 — a 22% drop. Early stopping automatically
-detects when validation accuracy stops improving (patience=5 epochs)
-and restores the best weights found during training. This produced
-consistent improvements across all model/dataset combinations and is
-standard practice in production ML pipelines.
+Without early stopping, training continued past the optimal
+validation accuracy and used degraded weights at the final
+epoch. In testing, ResNet18 on cells achieved 97.59% val
+accuracy at epoch 17 but ended at 75.20% at epoch 20 — a
+22% drop. Early stopping automatically detects when
+validation accuracy stops improving (patience=5 epochs)
+and restores the best weights found during training.
+This is standard practice in production ML pipelines.
 
-**Measured impact:**
-- ResNet18/cells: 74.51% → 95.26% test accuracy
-- AlexNet/lesions: 62.49% → 70.37% test accuracy
+**Measured impact on test accuracy:**
+
+| Model | Dataset | Without Early Stopping | With Early Stopping |
+|-------|---------|----------------------|---------------------|
+| ResNet18 | cells | 74.51% | 95.26% |
+| AlexNet | lesions | 62.49% | 70.37% |
+| VGG16 | cells | 95.26% | 96.05% |
+| AlexNet | cells | 91.03% | 95.50% |
+
+---
+
+### IMPROVEMENT 02 — MPS Device Support for Apple Silicon
+**File:** `train.py` and `run_all.py`  
+**Commit:** `bc4a616`
+
+**Justification:**
+Original code only checked for CUDA GPU. Apple Silicon
+Macs use a different backend called MPS. Without this fix
+training defaults to CPU which is 3-5x slower on Mac.
+Added automatic MPS detection so the pipeline runs
+optimally on all hardware without manual changes.
+
+```python
+# Before (broken)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# After (fixed)
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+elif torch.cuda.is_available():
+    device = torch.device("cuda")
+else:
+    device = torch.device("cpu")
+```
