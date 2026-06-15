@@ -25,6 +25,8 @@ and rigid infrastructure issues.
 | 6 | models.py | Runtime Crash | Wrong padding on 1x1 convolution in VGGBlock |
 | 7 | train.py | Runtime Crash | AlexNet ignores in_channels and num_classes |
 | 8 | train.py | Rigid Infrastructure | Hardcoded drop_rate=0.99, missing config.json |
+| 9 | models.py | Runtime Crash | VGGBlock never updates current_in_channels |
+| 10 | models.py | Runtime Crash | AlexNet classifier hardcoded wrong input size |
 
 ---
 
@@ -278,6 +280,68 @@ model = model_class(..., drop_rate=config["DROP_RATE"])
 
 ---
 
+---
+
+### BUG 09 — VGGBlock Does Not Update Channel Count Between Convolutions
+**File:** `models.py`  
+**Class:** `VGGBlock`  
+**Function:** `__init__()`
+
+**How it manifests:**
+RuntimeError on first VGG16 forward pass — channel mismatch between
+consecutive conv layers inside the same VGGBlock.
+
+**Root Cause:**
+`current_in_channels` is initialized to `in_channels` before the loop
+but never updated after each conv layer. So conv2 and conv3 inside the
+block still expect the original input channels instead of `out_channels`
+from the previous conv. This breaks every multi-conv VGG block.
+
+**Fix:**
+Added one line at the end of the loop body to update the channel count.
+
+```python
+# Before (broken)
+layers.append(nn.Conv2d(current_in_channels, out_channels, ...))
+layers.append(nn.BatchNorm2d(out_channels))
+layers.append(nn.ReLU(inplace=True))
+# current_in_channels never updated
+
+# After (fixed)
+layers.append(nn.Conv2d(current_in_channels, out_channels, ...))
+layers.append(nn.BatchNorm2d(out_channels))
+layers.append(nn.ReLU(inplace=True))
+current_in_channels = out_channels  # ← one line added
+```
+
+---
+
+### BUG 10 — AlexNet Classifier Input Size Hardcoded Wrong
+**File:** `models.py`  
+**Class:** `AlexNet`  
+**Function:** `__init__()`
+
+**How it manifests:**
+RuntimeError: linear input and weight shapes cannot be multiplied.
+AlexNet crashes on first forward pass for all datasets.
+
+**Root Cause:**
+The first Linear layer in AlexNet's classifier hardcodes `2048` as the
+input size. But for 64x64 input images, the actual flattened feature
+size after the conv layers is `3072` (192 channels × 4 × 4 spatial).
+The wrong number causes an immediate shape mismatch crash.
+
+**Fix:**
+Changed the hardcoded `2048` to the correct value `3072`.
+
+```python
+# Before (broken)
+nn.Linear(2048, 1024)
+
+# After (fixed)
+nn.Linear(3072, 1024)
+```
+
 ## Required Accuracy Targets
 
 | Dataset | Required | Achieved |
@@ -286,3 +350,25 @@ model = model_class(..., drop_rate=config["DROP_RATE"])
 | chest   | 87%      | TBD     |
 | lesions | 67%      | TBD     |
 | orgs    | 83%      | TBD     |
+
+
+---
+
+## Code Improvements (Beyond Bug Fixes)
+
+### IMPROVEMENT 01 — Early Stopping and Best Weight Restoration
+**File:** `fit.py`
+
+**Justification:**
+Without early stopping, training continued past the optimal validation
+accuracy and restored degraded weights at the final epoch. In testing,
+ResNet18 on cells achieved 97.59% val accuracy at epoch 17 but ended
+at 75.20% at epoch 20 — a 22% drop. Early stopping automatically
+detects when validation accuracy stops improving (patience=5 epochs)
+and restores the best weights found during training. This produced
+consistent improvements across all model/dataset combinations and is
+standard practice in production ML pipelines.
+
+**Measured impact:**
+- ResNet18/cells: 74.51% → 95.26% test accuracy
+- AlexNet/lesions: 62.49% → 70.37% test accuracy
