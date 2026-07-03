@@ -1,21 +1,17 @@
 """
 MAI/IDL SS26 - Final assignment.
+
 MG 6/6/2026
 """
-import copy
 import torch
 
 
 class Trainer:
-    def __init__(self, model, criterion, optimizer, device, patience=5):
+    def __init__(self, model, criterion, optimizer, device):
         self.model = model
         self.criterion = criterion
         self.optimizer = optimizer
         self.device = device
-        self.patience = patience
-        self.best_val_acc = 0.0
-        self.best_weights = None
-        self.epochs_no_improve = 0
 
     def train_one_epoch(self, dataloader):
         self.model.train()
@@ -69,25 +65,6 @@ class Trainer:
             print(f"Epoch [{epoch+1:02d}/{epochs:02d}] | "
                   f"Train Loss: {train_loss:.4f} - Train Acc: {train_acc:.2f}% | "
                   f"Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.2f}%")
-
-            # Save best weights when val accuracy improves
-            if val_acc > self.best_val_acc:
-                self.best_val_acc = val_acc
-                self.best_weights = copy.deepcopy(self.model.state_dict())
-                self.epochs_no_improve = 0
-            else:
-                self.epochs_no_improve += 1
-
-            # Stop early if no improvement for patience epochs
-            if self.epochs_no_improve >= self.patience:
-                print(f"\n Early stopping triggered at epoch {epoch+1} "
-                      f"— no improvement for {self.patience} epochs")
-                break
-
-        # Restore the best weights found during training
-        if self.best_weights is not None:
-            self.model.load_state_dict(self.best_weights)
-            print(f" Restored best weights (val acc: {self.best_val_acc:.2f}%)")
 
         print("-" * 50)
         print("Training Complete!")
