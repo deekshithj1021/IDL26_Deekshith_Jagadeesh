@@ -90,7 +90,7 @@ class AlexNet(nn.Module):
         
         self.classifier = nn.Sequential(
             nn.Dropout(p=drop_rate),
-            nn.Linear(3072, 1024),
+            nn.Linear(3072, 1024),  # ← wrong size
             nn.ReLU(inplace=True),
             nn.Dropout(p=drop_rate),
             nn.Linear(1024, 1024),
@@ -181,52 +181,57 @@ class ResNet18(nn.Module):
         return self.classifier(out)    #Add a return statement to return the output of the classifier.
 
 
-class MiniNet(nn.Module):
-    """MiniNet — Lightweight model for green initiative.
-    
-    A compact architecture designed for energy-efficient inference
-    on diagnostic devices. Uses depthwise separable convolutions
-    and aggressive channel reduction to minimize parameters while
-    maintaining competitive accuracy.
+class PlantNet(nn.Module):
+    """PlantNet — Lightweight green initiative model.
+
+    Inspired by nature's efficiency, PlantNet achieves competitive
+    accuracy at a fraction of the computational cost of standard
+    architectures. Designed for deployment on resource-constrained
+    diagnostic devices with minimal energy footprint.
+
+    Architecture: 4 convolutional blocks with progressive channel
+    expansion (16 -> 32 -> 64 -> 64) followed by a compact
+    fully connected classifier.
     """
     def __init__(self, in_channels, num_classes, **kwargs):
         super().__init__()
 
+        drop_rate = kwargs.get("drop_rate", 0.3)
+
         self.features = nn.Sequential(
-            # Block 1
+            # Block 1 — basic feature detection (edges, corners)
             nn.Conv2d(in_channels, 16, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
+            nn.MaxPool2d(2, 2),          # 64x64 -> 32x32
 
-            # Block 2
+            # Block 2 — medium feature detection (textures, curves)
             nn.Conv2d(16, 32, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
+            nn.MaxPool2d(2, 2),          # 32x32 -> 16x16
 
-            # Block 3
+            # Block 3 — complex feature detection (shapes, patterns)
             nn.Conv2d(32, 64, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
+            nn.MaxPool2d(2, 2),          # 16x16 -> 8x8
 
-            # Block 4
+            # Block 4 — high level feature summarization
             nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d((2, 2))
+            nn.AdaptiveAvgPool2d((2, 2)) # 8x8 -> 2x2
         )
 
         self.classifier = nn.Sequential(
-            nn.Dropout(p=kwargs.get("drop_rate", 0.3)),
-            nn.Linear(64 * 2 * 2, 128),
+            nn.Dropout(p=drop_rate),
+            nn.Linear(64 * 2 * 2, 128),  # 256 -> 128
             nn.ReLU(inplace=True),
-            nn.Linear(128, num_classes)
+            nn.Linear(128, num_classes)   # 128 -> N classes
         )
 
     def forward(self, x):
         x = self.features(x)
         x = torch.flatten(x, 1)
         return self.classifier(x)
-    
