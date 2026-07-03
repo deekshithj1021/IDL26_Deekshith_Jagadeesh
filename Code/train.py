@@ -1,5 +1,5 @@
 """
-MAI/IDL SS26 - Final assignment. 
+MAI/IDL SS26 - Final assignment.
 
 MG 6/6/2026
 """
@@ -12,9 +12,13 @@ from data import get_loaders
 import models
 from fit import Trainer
 
-def main():   
+
+def main():
     with open("config.json", "r") as f:
         config = json.load(f)
+
+    shared = config["SHARED"]
+    configs = config["CONFIGS"]
 
     if torch.backends.mps.is_available():
         device = torch.device("mps")
@@ -22,20 +26,27 @@ def main():
         device = torch.device("cuda")
     else:
         device = torch.device("cpu")
-    print(f"Training executing on device: {device}")
+    print(f"Training executing on device: {device}\n")
 
-    train_loader, val_loader, test_loader = get_loaders(data=config["DATA"], data_path=config["DATA_PATH"], batch_size=config["BATCH_SIZE"])  #added test_loader to get_loaders because we want to be able to evaluate on the test set after training
+    for cfg in configs:
+        print(f"{'='*60}")
+        print(f"  Model: {cfg['MODEL']}  |  Dataset: {cfg['DATA']}")
+        print(f"{'='*60}")
 
-    model_class = getattr(models, config["MODEL"])
-    model = model_class(in_channels=config["CHANNELS"], num_classes=config["NUM_CLASSES"], drop_rate=config["DROP_RATE"]).to(device)  # the droprate is changed from 0.99 to 0.5 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=config["LEARNING_RATE"])
+        train_loader, val_loader, test_loader = get_loaders(data=cfg["DATA"],data_path=shared["DATA_PATH"],batch_size=shared["BATCH_SIZE"])
 
-    trainer = Trainer(model, criterion, optimizer, device)
-    trainer.fit(train_loader, val_loader, epochs=config["EPOCHS"])
+        model_class = getattr(models, cfg["MODEL"])
+        model = model_class(in_channels=cfg["CHANNELS"],num_classes=cfg["NUM_CLASSES"],drop_rate=shared["DROP_RATE"]).to(device)
 
-    test_loss, test_acc = trainer.evaluate(test_loader) #test the model on the test set after trainingbut the test_loss is not used because we are only interested in the test accuracy for the final evaluation
-    print(f"\nFinal Test Accuracy: {test_acc:.2f}%")
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(),lr=shared["LEARNING_RATE"])
+
+        trainer = Trainer(model, criterion, optimizer, device)
+        trainer.fit(train_loader, val_loader, epochs=cfg["EPOCHS"])
+
+        test_loss, test_acc = trainer.evaluate(test_loader)
+        print(f"\nFinal Test Accuracy: {test_acc:.2f}%\n")
+
 
 if __name__ == "__main__":
     main()
