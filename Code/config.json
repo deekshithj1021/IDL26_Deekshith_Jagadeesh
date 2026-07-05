@@ -17,6 +17,10 @@
         {"MODEL": "AlexNet",  "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 10},
         {"MODEL": "AlexNet",  "DATA": "chest",   "CHANNELS": 1, "NUM_CLASSES": 2,  "EPOCHS": 10},
         {"MODEL": "AlexNet",  "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 10},
-        {"MODEL": "AlexNet",  "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 10}
+        {"MODEL": "AlexNet",  "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 10},
+        {"MODEL": "PlantNet", "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 10},
+        {"MODEL": "PlantNet", "DATA": "chest",   "CHANNELS": 1, "NUM_CLASSES": 2,  "EPOCHS": 10},
+        {"MODEL": "PlantNet", "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 10},
+        {"MODEL": "PlantNet", "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 10}
     ]
 }
