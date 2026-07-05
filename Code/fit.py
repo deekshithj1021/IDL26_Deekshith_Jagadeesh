@@ -3,6 +3,7 @@ MAI/IDL SS26 - Final assignment.
 
 MG 6/6/2026
 """
+import copy
 import torch
 
 
@@ -58,6 +59,9 @@ class Trainer:
         print("\n Starting Training Routine...")
         print("-" * 50)
 
+        best_val_acc = 0.0
+        best_weights = None
+
         for epoch in range(epochs):
             train_loss, train_acc = self.train_one_epoch(train_loader)
             val_loss, val_acc = self.evaluate(val_loader)
@@ -65,6 +69,16 @@ class Trainer:
             print(f"Epoch [{epoch+1:02d}/{epochs:02d}] | "
                   f"Train Loss: {train_loss:.4f} - Train Acc: {train_acc:.2f}% | "
                   f"Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.2f}%")
+
+            # Save best weights when val accuracy improves
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
+                best_weights = copy.deepcopy(self.model.state_dict())
+
+        # Restore best weights before evaluation
+        if best_weights is not None:
+            self.model.load_state_dict(best_weights)
+            print(f" Restored best weights (val acc: {best_val_acc:.2f}%)")
 
         print("-" * 50)
         print("Training Complete!")

@@ -1,26 +1,22 @@
 {
     "SHARED": {
         "DATA_PATH": "../Data",
-        "BATCH_SIZE": 32,
+        "BATCH_SIZE": 64,
         "LEARNING_RATE": 0.001,
         "DROP_RATE": 0.5
     },
     "CONFIGS": [
-        {"MODEL": "ResNet18","DATA": "cells","CHANNELS": 3,"NUM_CLASSES": 8,"EPOCHS": 30},
-        {"MODEL": "ResNet18","DATA": "chest","CHANNELS": 1,"NUM_CLASSES": 2,"EPOCHS": 25},
-        {"MODEL": "ResNet18","DATA": "lesions","CHANNELS": 3,"NUM_CLASSES": 7,"EPOCHS": 35},
-        {"MODEL": "ResNet18","DATA": "orgs","CHANNELS": 1,"NUM_CLASSES": 11,"EPOCHS": 30},
-        {"MODEL": "VGG16","DATA": "cells","CHANNELS": 3,"NUM_CLASSES": 8,"EPOCHS": 30},
-        {"MODEL": "VGG16","DATA": "chest","CHANNELS": 1,"NUM_CLASSES": 2,"EPOCHS": 25},
-        {"MODEL": "VGG16","DATA": "lesions","CHANNELS": 3,"NUM_CLASSES": 7,"EPOCHS": 35},
-        {"MODEL": "VGG16","DATA": "orgs","CHANNELS": 1,"NUM_CLASSES": 11,"EPOCHS": 30},
-        {"MODEL": "AlexNet","DATA": "cells","CHANNELS": 3,"NUM_CLASSES": 8,"EPOCHS": 30},
-        {"MODEL": "AlexNet","DATA": "chest","CHANNELS": 1,"NUM_CLASSES": 2,"EPOCHS": 25},
-        {"MODEL": "AlexNet","DATA": "lesions","CHANNELS": 3,"NUM_CLASSES": 7,"EPOCHS": 35},
-        {"MODEL": "AlexNet","DATA": "orgs","CHANNELS": 1,"NUM_CLASSES": 11,"EPOCHS": 30},
-        {"MODEL": "PlantNet","DATA": "cells","CHANNELS": 3,"NUM_CLASSES": 8,"EPOCHS": 25},
-        {"MODEL": "PlantNet","DATA": "chest","CHANNELS": 1,"NUM_CLASSES": 2,"EPOCHS": 20},
-        {"MODEL": "PlantNet","DATA": "lesions","CHANNELS": 3,"NUM_CLASSES": 7,"EPOCHS": 30},
-        {"MODEL": "PlantNet","DATA": "orgs","CHANNELS": 1,"NUM_CLASSES": 11,"EPOCHS": 25}
+        {"MODEL": "ResNet18", "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 10},
+        {"MODEL": "ResNet18", "DATA": "chest",   "CHANNELS": 1, "NUM_CLASSES": 2,  "EPOCHS": 10},
+        {"MODEL": "ResNet18", "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 10},
+        {"MODEL": "ResNet18", "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 10},
+        {"MODEL": "VGG16",    "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 10},
+        {"MODEL": "VGG16",    "DATA": "chest",   "CHANNELS": 1, "NUM_CLASSES": 2,  "EPOCHS": 10},
+        {"MODEL": "VGG16",    "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 10},
+        {"MODEL": "VGG16",    "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 10},
+        {"MODEL": "AlexNet",  "DATA": "cells",   "CHANNELS": 3, "NUM_CLASSES": 8,  "EPOCHS": 10},
+        {"MODEL": "AlexNet",  "DATA": "chest",   "CHANNELS": 1, "NUM_CLASSES": 2,  "EPOCHS": 10},
+        {"MODEL": "AlexNet",  "DATA": "lesions", "CHANNELS": 3, "NUM_CLASSES": 7,  "EPOCHS": 10},
+        {"MODEL": "AlexNet",  "DATA": "orgs",    "CHANNELS": 1, "NUM_CLASSES": 11, "EPOCHS": 10}
     ]
 }
