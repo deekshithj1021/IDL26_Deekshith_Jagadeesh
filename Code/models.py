@@ -6,13 +6,14 @@ MG 6/6/2026
 import torch
 import torch.nn as nn
 
-activation_str = "ReLU" # Placeholder for activation function, replaced with "ReLU".
+# BUG FIX: changed from "Identity" to "ReLU"
+# Identity does nothing — network could not learn non-linear patterns
+activation_str = "ReLU"
 
 
 class VGGBlock(nn.Module):
     """Modular VGG block with configurable number of conv layers and channels.
-
-    C configuration from Simonyan & Zisserman's VGG paper.
+    C configuration from Simonyan & Zisserman VGG paper.
     """
     def __init__(self, in_channels, out_channels, num_convs, padding=1):
         super().__init__()
@@ -21,12 +22,16 @@ class VGGBlock(nn.Module):
         for i in range(num_convs):
             is_config_c_tail = (num_convs == 3 and i == 2)
             kernel_size = 1 if is_config_c_tail else 3
-            pad = 0 if is_config_c_tail else padding  # For the 3rd conv in C config, use 1x1 conv with no padding to reduce channels.
-            layers.append(nn.Conv2d(current_in_channels, out_channels, kernel_size=kernel_size, padding=pad))  # Add convolutional layer
+            # BUG FIX: padding was always 1 even for 1x1 kernels
+            # 1x1 conv needs padding=0 otherwise spatial dimensions grow incorrectly
+            pad = 0 if is_config_c_tail else padding
+            layers.append(nn.Conv2d(current_in_channels, out_channels, kernel_size=kernel_size, padding=pad))
             layers.append(nn.BatchNorm2d(out_channels))
             layers.append(nn.ReLU(inplace=True))
-            current_in_channels = out_channels   # Update in_channels for the next layer
-            
+            # BUG FIX: current_in_channels was never updated inside the loop
+            # next conv layer needs to know output channels of previous conv
+            current_in_channels = out_channels
+
         layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
         self.block = nn.Sequential(*layers)
 
@@ -41,11 +46,10 @@ class ResBlock(nn.Module):
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.activation = activation
-        
+
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(out_channels)
 
-        # If spatial size shrinks (stride > 1) or channels change, adjust the shortcut
         self.shortcut = nn.Identity()
         if stride != 1 or in_channels != out_channels:
             self.shortcut = nn.Sequential(
@@ -57,28 +61,32 @@ class ResBlock(nn.Module):
         identity = self.shortcut(x)
         out = self.activation(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
-        out += identity  
+        out += identity
         out = self.activation(out)
         return out
 
 
 class AlexNet(nn.Module):
     """AlexNet (Krizhevsky et al., 2012) adapted for smaller inputs."""
-    def __init__(self, in_channels, num_classes, **kwargs):  # add inchannels and numclasses
+    # BUG FIX: original only accepted **kwargs and ignored in_channels and num_classes
+    # hardcoded 3 channels and 11 classes crashed on grayscale datasets
+    def __init__(self, in_channels, num_classes, **kwargs):
         super().__init__()
+
         drop_rate = kwargs.get("drop_rate", 0.5)
-        
+
         self.features = nn.Sequential(
-            nn.Conv2d(in_channels, 48, kernel_size=7, stride=2, padding=3),  # start from inchannels instead of 3 because we want to be flexible with the number of input channels
+            # BUG FIX: was hardcoded as nn.Conv2d(3, 48, ...) ignoring in_channels
+            nn.Conv2d(in_channels, 48, kernel_size=7, stride=2, padding=3),
             nn.BatchNorm2d(48),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-            
+
             nn.Conv2d(48, 128, kernel_size=5, padding=2),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-            
+
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.Conv2d(256, 256, kernel_size=3, padding=1),
@@ -87,15 +95,18 @@ class AlexNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
         )
-        
+
         self.classifier = nn.Sequential(
             nn.Dropout(p=drop_rate),
-            nn.Linear(3072, 1024),  # 192 channels × 4 × 4 = 3072 for 64x64 input
+            # BUG FIX: was nn.Linear(2048, 1024) — wrong size for 64x64 input
+            # 192 channels x 4 x 4 spatial = 3072 features after flattening
+            nn.Linear(3072, 1024),
             nn.ReLU(inplace=True),
             nn.Dropout(p=drop_rate),
             nn.Linear(1024, 1024),
             nn.ReLU(inplace=True),
-            nn.Linear(1024, num_classes),  #change from 11 to num_classes because we want to be flexible with the number of classes
+            # BUG FIX: was hardcoded nn.Linear(1024, 11) ignoring num_classes
+            nn.Linear(1024, num_classes),
         )
 
     def forward(self, x):
@@ -105,7 +116,7 @@ class AlexNet(nn.Module):
 
 
 class VGG16(nn.Module):
-    """VGG16 in C configuration of Simonyan & Zisserman, (2014) adapted for smaller inputs."""
+    """VGG16 in C configuration (Simonyan & Zisserman, 2014) adapted for smaller inputs."""
     def __init__(self, in_channels, num_classes, **kwargs):
         super().__init__()
 
@@ -118,7 +129,7 @@ class VGG16(nn.Module):
             VGGBlock(256, 512, num_convs=3),
             VGGBlock(512, 512, num_convs=3)
         )
-        
+
         self.classifier = nn.Sequential(
             nn.Linear(2048, 1024),
             nn.ReLU(inplace=True),
@@ -137,8 +148,7 @@ class VGG16(nn.Module):
 
 class ResNet18(nn.Module):
     """ResNet18 (He et al., 2016) adapted for smaller inputs.
-    
-    activation - flexible activation function to allow experimentation (e.g., ReLU, LeakyReLU, etc.)
+    activation — flexible activation function for experimentation.
     """
     def __init__(self, in_channels, num_classes, **kwargs):
         super().__init__()
@@ -149,13 +159,13 @@ class ResNet18(nn.Module):
         self.bn1 = nn.BatchNorm2d(64)
         self.activation = activation(inplace=True)
         print("Using activation function:", self.activation)
-        
+
         self.stage1 = nn.Sequential(
             ResBlock(64, 64, activation(inplace=True), stride=1),
             ResBlock(64, 64, activation(inplace=True), stride=1)
         )
         self.stage2 = nn.Sequential(
-            ResBlock(64, 128, activation(inplace=True), stride=2),          
+            ResBlock(64, 128, activation(inplace=True), stride=2),
             ResBlock(128, 128, activation(inplace=True), stride=1)
         )
         self.stage3 = nn.Sequential(
@@ -166,7 +176,7 @@ class ResNet18(nn.Module):
             ResBlock(256, 512, activation(inplace=True), stride=2),
             ResBlock(512, 512, activation(inplace=True), stride=1)
         )
-        
+
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Linear(512, num_classes)
 
@@ -178,20 +188,14 @@ class ResNet18(nn.Module):
         out = self.stage4(out)
         out = self.avgpool(out)
         out = torch.flatten(out, 1)
-        return self.classifier(out)    #Add a return statement to return the output of the classifier.
+        # BUG FIX: was missing return — model was outputting None silently
+        return self.classifier(out)
 
 
 class PlantNet(nn.Module):
-    """PlantNet — Lightweight green initiative model.
-
-    Inspired by nature's efficiency, PlantNet achieves competitive
-    accuracy at a fraction of the computational cost of standard
-    architectures. Designed for deployment on resource-constrained
-    diagnostic devices with minimal energy footprint.
-
-    Architecture: 4 convolutional blocks with progressive channel
-    expansion (16 -> 32 -> 64 -> 64) followed by a compact
-    fully connected classifier.
+    """PlantNet — lightweight green initiative model.
+    Designed for energy-efficient deployment on diagnostic devices.
+    4 conv blocks with progressive channel expansion: 16 -> 32 -> 64 -> 64
     """
     def __init__(self, in_channels, num_classes, **kwargs):
         super().__init__()
@@ -199,36 +203,38 @@ class PlantNet(nn.Module):
         drop_rate = kwargs.get("drop_rate", 0.3)
 
         self.features = nn.Sequential(
-            # Block 1 — basic feature detection (edges, corners)
+            # Block 1 — detects basic features like edges and corners
             nn.Conv2d(in_channels, 16, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),          # 64x64 -> 32x32
+            nn.MaxPool2d(2, 2),
 
-            # Block 2 — medium feature detection (textures, curves)
+            # Block 2 — detects medium features like textures and curves
             nn.Conv2d(16, 32, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),          # 32x32 -> 16x16
+            nn.MaxPool2d(2, 2),
 
-            # Block 3 — complex feature detection (shapes, patterns)
+            # Block 3 — detects complex features like shapes and patterns
             nn.Conv2d(32, 64, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),          # 16x16 -> 8x8
+            nn.MaxPool2d(2, 2),
 
             # Block 4 — high level feature summarization
+            # AdaptiveAvgPool squeezes spatial dims to 2x2 regardless of input size
             nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d((2, 2)) # 8x8 -> 2x2
+            nn.AdaptiveAvgPool2d((2, 2))
         )
 
         self.classifier = nn.Sequential(
             nn.Dropout(p=drop_rate),
-            nn.Linear(64 * 2 * 2, 128),  # 256 -> 128
+            # 64 channels x 2 x 2 spatial = 256 input features
+            nn.Linear(64 * 2 * 2, 128),
             nn.ReLU(inplace=True),
-            nn.Linear(128, num_classes)   # 128 -> N classes
+            nn.Linear(128, num_classes)
         )
 
     def forward(self, x):

@@ -1,6 +1,7 @@
 """
 MAI/IDL SS26 - Final Assignment
 Automated benchmark runner for all model/dataset combinations.
+Calculates accuracy, precision, recall, F1 and efficiency metrics.
 """
 import json
 import time
@@ -13,12 +14,16 @@ import models
 from data import get_loaders
 from fit import Trainer
 
+# reads all configurations from config.json — no hardcoded values
 with open("config.json", "r") as f:
     config = json.load(f)
 
+# shared settings apply to all runs — batch size, learning rate etc
 shared  = config["SHARED"]
+# configs is the list of all model/dataset combinations to benchmark
 configs = config["CONFIGS"]
 
+# detect best available device — MPS for Mac, CUDA for NVIDIA, CPU as fallback
 if torch.backends.mps.is_available():
     device = torch.device("mps")
 elif torch.cuda.is_available():
@@ -40,6 +45,8 @@ for cfg in configs:
         batch_size=shared["BATCH_SIZE"]
     )
 
+    # getattr dynamically gets the model class by name from models.py
+    # so "ResNet18" string becomes models.ResNet18 class
     model_class = getattr(models, cfg["MODEL"])
     model = model_class(
         in_channels=cfg["CHANNELS"],
@@ -51,10 +58,13 @@ for cfg in configs:
     optimizer = optim.Adam(model.parameters(), lr=shared["LEARNING_RATE"])
     trainer   = Trainer(model, criterion, optimizer, device)
 
+    # time the full training run for green initiative efficiency comparison
     start = time.time()
     trainer.fit(train_loader, val_loader, epochs=cfg["EPOCHS"])
     train_time = round(time.time() - start, 1)
 
+    # collect all predictions and correct labels from test set
+    # test set is completely unseen during training — gives honest accuracy
     model.eval()
     all_preds, all_labels = [], []
     with torch.no_grad():
@@ -64,16 +74,22 @@ for cfg in configs:
             all_preds.extend(predicted.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
 
-    import numpy as np
     all_preds  = np.array(all_preds)
     all_labels = np.array(all_labels)
 
+    # accuracy — percentage of correct predictions overall
     accuracy  = round((all_preds == all_labels).mean() * 100, 2)
+    # precision — when we predict a class how often are we right
     precision = round(precision_score(all_labels, all_preds, average="macro", zero_division=0) * 100, 2)
+    # recall — out of all real cases how many did we correctly identify
     recall    = round(recall_score(all_labels, all_preds, average="macro", zero_division=0) * 100, 2)
+    # f1 — balance between precision and recall — macro averages across all classes
     f1        = round(f1_score(all_labels, all_preds, average="macro", zero_division=0) * 100, 2)
+    # count only trainable parameters — frozen params don't contribute to model size
     params    = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
+    # measure inference latency — run 100 times and average for stable measurement
+    # shows how fast model makes predictions on a single image
     dummy = torch.randn(1, cfg["CHANNELS"], 64, 64).to(device)
     model.eval()
     t = time.time()

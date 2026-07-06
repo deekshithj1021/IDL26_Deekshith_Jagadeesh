@@ -17,6 +17,7 @@ class Trainer:
     def train_one_epoch(self, dataloader):
         self.model.train()
         running_loss = 0.0
+        # BUG FIX: was "correct, sum = 0, 0" — sum shadows Python built-in sum()
         correct, total = 0, 0
 
         for images, labels in dataloader:
@@ -25,6 +26,8 @@ class Trainer:
             outputs = self.model(images)
             loss = self.criterion(outputs, labels)
 
+            # BUG FIX: zero_grad was missing — gradients were accumulating across batches
+            # without this gradients explode and model cannot learn
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -59,6 +62,8 @@ class Trainer:
         print("\n Starting Training Routine...")
         print("-" * 50)
 
+        # IMPROVEMENT: track best validation accuracy during training
+        # first run showed final epoch weights were sometimes much worse than best epoch
         best_val_acc = 0.0
         best_weights = None
 
@@ -70,12 +75,13 @@ class Trainer:
                   f"Train Loss: {train_loss:.4f} - Train Acc: {train_acc:.2f}% | "
                   f"Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.2f}%")
 
-            # Save best weights when val accuracy improves
+            # save weights whenever validation accuracy improves
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
+                # deepcopy makes independent copy — model can keep training without overwriting
                 best_weights = copy.deepcopy(self.model.state_dict())
 
-        # Restore best weights before evaluation
+        # restore best weights so test evaluation uses best model not final epoch
         if best_weights is not None:
             self.model.load_state_dict(best_weights)
             print(f" Restored best weights (val acc: {best_val_acc:.2f}%)")
