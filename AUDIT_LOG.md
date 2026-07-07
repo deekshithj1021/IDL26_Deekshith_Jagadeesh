@@ -7,77 +7,94 @@
 
 ---
 
-## How I Approached This
+## How We Approached This
 
-When I first received the assignment I read through the PDF
-carefully to understand what was being asked. The story about
-Dr. Vance and the sabotaged code was dramatic but underneath
-it I understood the real task — find and fix bugs in four
-Python files and rebuild the missing infrastructure.
+This assignment was completed as a team. We divided the
+work based on the three tasks. Deekshith handled Task 1 —
+the bug fixing, infrastructure rebuilding, benchmark
+pipeline — and Task 2, the green initiative where PlantNet
+was designed. Prahas handled Task 3 — the transfer learning
+implementation for the organs dataset. We discussed all
+findings together and jointly wrote this documentation.
 
-My first step was to set up the environment. I cloned the
-template repository from GitHub and downloaded the data files
-from the cloud link. I organized everything into a clean
-folder structure with Code and Data folders and opened the
-project in VS Code.
+The bug audit below covers the work done in Task 1. The
+process is described from Deekshith's perspective as he
+was the one discovering and fixing each bug. Both of us
+understand all the fixes and can explain them.
 
-Before touching any code I read through each file once to
-understand what it was supposed to do. I saw that data.py
-loads and splits the data, models.py defines the three neural
-network architectures, fit.py handles the training loop, and
-train.py ties everything together. I also noticed immediately
-that config.json was completely missing even though train.py
-was trying to open it.
+When we first received the assignment we read through the
+PDF carefully to understand what was being asked. The story
+about Dr. Vance and the sabotaged code was dramatic but
+underneath it we understood the real task — find and fix
+bugs in four Python files and rebuild the missing
+infrastructure.
 
-My approach was simple — try to run the code and fix whatever
-crashes first. Then run again and fix the next problem. I kept
-doing this until the code ran cleanly from start to finish.
+The first step was to set up the environment. We cloned
+the template repository from GitHub and downloaded the
+data files from the cloud link. We organized everything
+into a clean folder structure with Code and Data folders
+and opened the project in VS Code.
+
+Before touching any code Deekshith read through each file
+once to understand what it was supposed to do. data.py
+loads and splits the data, models.py defines the three
+neural network architectures, fit.py handles the training
+loop, and train.py ties everything together. It was also
+immediately obvious that config.json was completely missing
+even though train.py was trying to open it.
+
+The approach was simple — try to run the code and fix
+whatever crashes first. Then run again and fix the next
+problem. Keep doing this until the code runs cleanly
+from start to finish.
 
 The first attempt to run train.py crashed immediately with
-FileNotFoundError because config.json did not exist. I created
-a basic config.json with the minimum settings needed to run.
+FileNotFoundError because config.json did not exist. A
+basic config.json was created with the minimum settings
+needed to run.
 
 The second attempt crashed with a shape error in the labels.
-I had never seen this error before so I investigated by printing
-the label tensor shapes. I found they were stored as [N,1]
-instead of the [N] that CrossEntropyLoss expects.
+This error had never been seen before so it was investigated
+by printing the label tensor shapes. The labels were stored
+as [N,1] instead of the [N] that CrossEntropyLoss expects.
 
 The third attempt actually started training but the loss was
 not decreasing at all — it kept growing larger every batch.
-I went back into fit.py and realised zero_grad was missing.
+Going back into fit.py revealed zero_grad was missing.
 PyTorch accumulates gradients by default so without resetting
 them they explode across batches.
 
-After fixing the obvious crashes I started looking more
-carefully at the logic. I noticed the validation data was
-included inside the training data — a silent bug that would
-never cause a crash but completely invalidates all results.
+After fixing the obvious crashes the logic was inspected
+more carefully. The validation data was included inside the
+training data — a silent bug that would never cause a crash
+but completely invalidates all results.
 
-I then went through models.py very carefully line by line.
-I found the activation was set to Identity which does nothing,
+Going through models.py very carefully line by line revealed
+the activation was set to Identity which does nothing,
 ResNet18 was not returning its output, VGGBlock had wrong
 padding on 1x1 convolutions, channel counts were never
 updating inside the loop, and AlexNet had hardcoded values
 that made it incompatible with most datasets.
 
-Some of these bugs I found by reading the code carefully.
-Others I only found when the code crashed while trying to
-run a specific model on a specific dataset. For example the
-AlexNet classifier size bug only appeared when I actually
-ran AlexNet and saw the shape mismatch error.
+Some bugs were found by reading the code carefully. Others
+only appeared when the code crashed while trying to run a
+specific model on a specific dataset. For example the
+AlexNet classifier size bug only appeared when AlexNet
+was actually run and the shape mismatch error appeared.
 
-Going through everything I found a total of 15 bugs across
-4 files. I also made one important improvement to fit.py
-after observing during my first benchmark run that test
-accuracy was sometimes much lower than the best validation
-accuracy seen during training — because the code was always
-using the final epoch weights even when earlier epochs were
-much better.
+Going through everything a total of 15 bugs were found
+across 4 files. One important improvement to fit.py was
+also made after observing during the first benchmark run
+that test accuracy was sometimes much lower than the best
+validation accuracy seen during training — because the code
+was always using the final epoch weights even when earlier
+epochs were much better.
 
-The whole process felt like detective work. Each fix revealed
-the next problem and slowly the picture became clearer.
-By the end the code ran cleanly on all three models across
-all four datasets and produced meaningful results.
+The whole process felt like detective work. Each fix
+revealed the next problem and slowly the picture became
+clearer. By the end the code ran cleanly on all three
+models across all four datasets and produced meaningful
+results.
 
 ---
 
