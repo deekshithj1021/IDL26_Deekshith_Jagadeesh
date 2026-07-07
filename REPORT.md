@@ -1140,3 +1140,62 @@ run. Both scratch (62.5%) and transfer (68%) exceeded
 the 40% minimum requirement. Transfer learning consistently
 improved over scratch by approximately 5 to 6 percentage
 points across all experiments.
+
+---
+
+## Final Reflection
+
+This assignment was more challenging and more educational
+than we expected going in. What started as a bug fixing
+exercise turned into a genuine learning experience about
+how neural networks actually behave in practice.
+
+The most important thing we learned was not about any
+specific model or dataset. It was about the gap between
+theory and practice. In lectures we learned that more
+epochs means better training. In practice we discovered
+that more epochs often means worse test results because
+of overfitting — and that the solution was simpler than
+we thought. Three lines of code to save the best weights
+made a 27 percentage point difference on cells.
+
+We also learned that bigger is not always better. PlantNet
+with 94K parameters outperforming ResNet18 with 11 million
+on most datasets was genuinely surprising. We ran it
+multiple times because we did not believe it the first
+time. Understanding why it happened — overcapacity on
+small images — was one of the clearest insights from
+the whole assignment.
+
+The transfer learning task taught us that not all
+architectures benefit equally from pre-training. PlantNet
+gained nothing from transfer learning while VGG16 gained
+30 percentage points. Understanding why required thinking
+carefully about model capacity and what it means for a
+small network to retain knowledge.
+
+The git history for this repository tells an honest story.
+There are commits from weeks ago that look different from
+the final version — different file names, different
+approaches, code that was later simplified. We did not
+try to hide this. The progression from run_all.py to
+benchmark.py, from early stopping to best weight saving,
+from MiniNet to PlantNet, from a single transfer.py to
+an exploration across all four architectures — all of
+it is visible and all of it reflects genuine iterative
+work.
+
+If we were to do this again we would start with the
+metrics earlier. We spent too long looking only at
+accuracy before discovering the precision and recall
+story on lesions. The F1 score told a completely
+different story than accuracy alone and we only noticed
+it late.
+
+The organs dataset remains a genuine open problem.
+68% accuracy with transfer learning is a real improvement
+over 62.5% scratch training but it is not production
+ready for clinical use. We are honest about that. With
+more data the picture would change significantly and the
+recommendations section outlines exactly what we would
+try at each data scale.
