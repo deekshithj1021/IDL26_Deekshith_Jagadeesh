@@ -1,7 +1,13 @@
 # IDL26 — Operation Cyber-Histology
 **Post-Incident Pipeline Reconstruction and ML Engineering**
 
-**Authors:** Deekshith Jagadeesh, Prahas Hegde
+**Authors:** 
+| Name | Enrollment Number |
+|------|------------------|
+| Deekshith Jagadeesh | 10000759 |
+| Prahas Hegde | 10001212 |
+
+---
 
 **Course:** MAI/IDL SS26 — Final Assignment
 
