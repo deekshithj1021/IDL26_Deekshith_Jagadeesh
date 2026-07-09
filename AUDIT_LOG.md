@@ -15,17 +15,13 @@ the bug fixing, infrastructure rebuilding, benchmark
 pipeline — and Task 2, the green initiative where PlantNet
 was designed. Prahas handled Task 3 — the transfer learning
 implementation for the organs dataset. We discussed all
-findings together and jointly wrote this documentation.
-
-The bug audit below covers the work done in Task 1. The
-process is described from Deekshith's perspective as he
-was the one discovering and fixing each bug. Both of us
-understand all the fixes and can explain them.
+findings together and jointly wrote this documentation. 
+The bug audit below covers the work done in Task 1.
 
 When we first received the assignment we read through the
 PDF carefully to understand what was being asked. The story
 about Dr. Vance and the sabotaged code was dramatic but
-underneath it we understood the real task — find and fix
+underneath it we understood the real task, find and fix
 bugs in four Python files and rebuild the missing
 infrastructure.
 
@@ -43,7 +39,7 @@ loop, and train.py ties everything together. It was also
 immediately obvious that config.json was completely missing
 even though train.py was trying to open it.
 
-The approach was simple — try to run the code and fix
+The approach was simple, try to run the code and fix
 whatever crashes first. Then run again and fix the next
 problem. Keep doing this until the code runs cleanly
 from start to finish.
@@ -59,14 +55,14 @@ by printing the label tensor shapes. The labels were stored
 as [N,1] instead of the [N] that CrossEntropyLoss expects.
 
 The third attempt actually started training but the loss was
-not decreasing at all — it kept growing larger every batch.
+not decreasing at all, it kept growing larger every batch.
 Going back into fit.py revealed zero_grad was missing.
 PyTorch accumulates gradients by default so without resetting
 them they explode across batches.
 
 After fixing the obvious crashes the logic was inspected
 more carefully. The validation data was included inside the
-training data — a silent bug that would never cause a crash
+training data, a silent bug that would never cause a crash
 but completely invalidates all results.
 
 Going through models.py very carefully line by line revealed
@@ -86,7 +82,7 @@ Going through everything a total of 15 bugs were found
 across 4 files. One important improvement to fit.py was
 also made after observing during the first benchmark run
 that test accuracy was sometimes much lower than the best
-validation accuracy seen during training — because the code
+validation accuracy seen during training, because the code
 was always using the final epoch weights even when earlier
 epochs were much better.
 
@@ -130,7 +126,7 @@ results.
 **How I found it:**
 After creating config.json I tried running train.py for
 the first time. The script started but the training loss
-was not decreasing at all — it kept growing larger every
+was not decreasing at all, it kept growing larger every
 batch instead of getting smaller. The model was not
 learning anything. I printed the loss values and saw
 they were exploding into very large numbers.
@@ -138,15 +134,15 @@ they were exploding into very large numbers.
 I went into fit.py and read through train_one_epoch()
 step by step. I saw loss.backward() and optimizer.step()
 were called but there was no optimizer.zero_grad() before
-them. I remembered from lectures that PyTorch accumulates
-gradients by default — without resetting them they keep
+them. I saw that PyTorch accumulates
+gradients by default, without resetting them they keep
 adding up across batches and eventually explode.
 
 **What was wrong:**
 PyTorch adds new gradients on top of old ones each batch.
 Without resetting, gradients from batch 1 carry into batch 2,
 batch 2 into batch 3 and so on. They keep growing until they
-explode — loss becomes very large and the model learns nothing.
+explode, loss becomes very large and the model learns nothing.
 
 I specifically chose to put zero_grad() BEFORE
 loss.backward() and not after optimizer.step(). The
@@ -185,7 +181,7 @@ function scope.
 
 It was not causing a crash here because the built-in
 sum() was not called inside this function. But it is
-a dangerous anti-pattern — if any future code in
+a dangerous anti-pattern, if any future code in
 this function tried to use sum() it would fail
 unexpectedly with a confusing error.
 
@@ -194,14 +190,14 @@ Python looks up names in local scope first. When you
 write `sum = 0` Python creates a local integer variable
 that completely hides the built-in `sum()` function.
 Any call to sum() in that scope would return 0 instead
-of summing a list — silently producing wrong results
+of summing a list ,silently producing wrong results
 without any error message. This is a scoping anti-pattern
 that violates Python best practices.
 
 **Fix:**
 Renamed variable from `sum` to `total`. Chose total
 specifically because it matches the naming used in the
-evaluate() method below — making the class consistent.
+evaluate() method below, making the class consistent.
 
 ```python
 # before
@@ -222,16 +218,16 @@ but something felt wrong. Validation accuracy was
 suspiciously high from the very first epoch. I inspected
 data.py carefully and printed the sizes of train and val
 datasets. I noticed train had ALL samples and val had the
-last 10% of those same samples — the two sets were
+last 10% of those same samples, the two sets were
 completely overlapping.
 
 **What was wrong:**
 The split index `val_start` was calculated correctly as
 90% of total samples. But it was only applied to create
-`val_data` — never applied to cut `train_data`. So the
+`val_data` never applied to cut `train_data`. So the
 model was training on validation samples and then being
 tested on those same samples. Results were artificially
-inflated — this is called data leakage and is one of the
+inflated, this is called data leakage and is one of the
 most dangerous silent bugs in machine learning.
 
 **Fix:**
@@ -258,7 +254,7 @@ When I first ran train.py after creating config.json it
 crashed immediately on the first training batch with
 `RuntimeError: 0D or 1D target tensor expected`.
 I investigated by printing the label tensor shapes and
-found labels stored as shape `[N, 1]` — each label
+found labels stored as shape `[N, 1]`, each label
 wrapped in an extra bracket like `[[7], [3], [6]]`
 instead of the flat `[7, 3, 6]` that CrossEntropyLoss
 expects.
@@ -267,7 +263,7 @@ expects.
 `nn.CrossEntropyLoss` needs labels as a flat 1D tensor
 of shape `[N]` to index into the output tensor correctly.
 A shape `[N, 1]` is 2D which CrossEntropyLoss interprets
-as multi-target classification — a completely different
+as multi-target classification, a completely different
 problem that causes an immediate crash.
 
 **Fix:**
@@ -294,16 +290,16 @@ val_labels   = data_dict['train_labels'][val_start:].squeeze(1)
 After fixing the training and validation label shapes
 I realized the test labels had the same problem. The
 test dataset was created directly from `data_dict['test_labels']`
-without any squeeze — same `[N, 1]` shape issue.
+without any squeeze, same `[N, 1]` shape issue.
 If left unfixed the final test evaluation would also
 crash with the same error.
 
 **What was wrong:**
-Same root cause as Bug 04 — test labels stored as
+Same root cause as Bug 04, test labels stored as
 `[N, 1]` in the `.pt` files. CrossEntropyLoss needs
 `[N]` for evaluation just as much as for training.
 The fix needed to be applied consistently to all
-three label tensors — train, val and test.
+three label tensors train, val and test.
 
 **Fix:**
 Applied `.squeeze(1)` to test labels when creating
@@ -326,11 +322,11 @@ test_dataset = TensorDataset(data_dict['test_images'],
 
 **How I found it:**
 After fixing all the data and training bugs the code finally
-ran without crashing. But ResNet18 accuracy was terrible —
+ran without crashing. But ResNet18 accuracy was terrible,
 staying near random chance no matter how many epochs ran.
 Train loss was barely decreasing. I went into models.py
 and at the very top I saw `activation_str = "Identity"`.
-I immediately knew this was wrong — Identity means pass
+I immediately knew this was wrong, Identity means pass
 the input through completely unchanged, which is the same
 as having no activation function at all.
 
@@ -346,7 +342,7 @@ that behaves like a single straight line.
 
 **Fix:**
 Changed activation to ReLU which makes negative values
-zero and keeps positive values unchanged — introducing
+zero and keeps positive values unchanged, introducing
 the non-linearity needed for deep learning.
 
 ```python
@@ -365,7 +361,7 @@ activation_str = "ReLU"
 **How I found it:**
 While reading through each model carefully I went through
 ResNet18's forward() method line by line. Every stage
-processed the data correctly — conv1, stage1 through
+processed the data correctly conv1, stage1 through
 stage4, avgpool, flatten. But the very last line was just
 `self.classifier(out)` without return. In Python any
 function without a return statement gives back None.
@@ -376,7 +372,7 @@ silently throwing it away.
 The forward() method is what PyTorch calls to get
 predictions from the model. Returning None meant
 the loss function received None instead of class scores.
-This produced completely invalid gradients silently —
+This produced completely invalid gradients silently,
 no crash, no warning, just wrong results. It is the
 most dangerous type of bug because everything appears
 to run normally.
@@ -410,14 +406,14 @@ its spatial dimensions.
 
 **What was wrong:**
 A 3x3 convolution needs padding=1 to maintain spatial
-dimensions — the kernel overlaps by 1 pixel on each side.
+dimensions, the kernel overlaps by 1 pixel on each side.
 But a 1x1 convolution looks at exactly one pixel at a time
 and needs no padding at all. Adding padding=1 to a 1x1
 conv makes the output larger than the input which cascades
 through subsequent layers causing shape mismatches.
 
 **Fix:**
-Made padding conditional on kernel size — zero for 1x1
+Made padding conditional on kernel size, zero for 1x1
 convolutions and the original padding value for 3x3.
 
 ```python
@@ -452,7 +448,7 @@ After the first conv layer transforms the data from
 conv layers need to accept `out_channels` as their input.
 But `current_in_channels` stayed at the original
 `in_channels` value so conv2 and conv3 tried to process
-the wrong number of input channels — causing a crash.
+the wrong number of input channels, causing a crash.
 
 **Fix:**
 Added one line at the end of the loop to update
@@ -481,11 +477,11 @@ for i in range(num_convs):
 **How I found it:**
 When I tried running AlexNet on the chest dataset it
 crashed immediately. I looked at AlexNet's __init__
-and saw it only accepted `**kwargs` — it never extracted
+and saw it only accepted `**kwargs` it never extracted
 `in_channels` or `num_classes` from those kwargs. The
 first conv layer had `3` hardcoded and the classifier
 had `11` hardcoded. Chest is grayscale with 1 channel
-and 2 classes — completely incompatible.
+and 2 classes are completely incompatible.
 
 **What was wrong:**
 AlexNet was built to work with only one specific dataset
@@ -535,7 +531,7 @@ Channels at end: 192
 Flattened: 192 × 4 × 4 = 3072
 ```
 
-But the classifier had `nn.Linear(2048, 1024)` — wrong.
+But the classifier had `nn.Linear(2048, 1024)` which was wrong.
 
 **What was wrong:**
 The hardcoded value 2048 does not match the actual
@@ -562,12 +558,12 @@ nn.Linear(3072, 1024)
 
 **How I found it:**
 The very first thing that happened when I ran train.py
-was a FileNotFoundError — config.json did not exist at all.
+was a FileNotFoundError, config.json did not exist at all.
 The script crashed before doing anything. I looked at the
 code and saw `open("config.json", "r")` at the top but
 the file was completely deleted. This meant there was no
 way to control any settings without hardcoding them directly
-into the Python files — exactly the kind of infrastructure
+into the Python files, exactly the kind of infrastructure
 violation the assignment warned about.
 
 **What was wrong:**
@@ -576,13 +572,13 @@ run. Even if the file existed, all the important values
 like which model to use, which dataset, batch size and
 learning rate were either missing or hardcoded. Running
 different models or datasets required manually editing
-Python code each time — completely against the spirit of
+Python code each time, completely against the spirit of
 a config-driven pipeline.
 
 **Fix:**
 Created config.json from scratch with two sections.
 SHARED for settings common to all runs and CONFIGS as
-a list of all model/dataset combinations. Updated train.py
+a list of all model and dataset combinations. Updated train.py
 to read both sections and loop through all combinations.
 
 ```json
@@ -608,7 +604,7 @@ I checked what device was being used and saw it was
 running on CPU. I was on a Mac with Apple Silicon which
 has a GPU backend called MPS. The original device
 detection only checked for CUDA which is an NVIDIA
-technology — completely irrelevant on Mac. So it always
+technology completely irrelevant on Mac. So it always
 fell back to slow CPU even though a GPU was available.
 
 **What was wrong:**
@@ -646,7 +642,7 @@ else:
 
 **How I found it:**
 I noticed `get_loaders()` returns three things but the
-original code only kept two of them — the test loader
+original code only kept two of them, the test loader
 was thrown away using `_`. This meant after all the
 training there was no way to actually evaluate the model
 on unseen test data. The whole point of training is to
@@ -658,7 +654,7 @@ The test set is the only honest measure of how well the
 model generalizes to completely new data. By discarding
 the test loader and having no evaluation after training
 the pipeline was fundamentally incomplete. Training would
-finish and print nothing useful — no way to know if the
+finish and print nothing useful, no way to know if the
 model actually learned anything.
 
 **Fix:**
@@ -683,7 +679,7 @@ print(f"\nFinal Test Accuracy: {test_acc:.2f}%")
 **How I found it:**
 I read through the model creation line in train.py and
 saw `drop_rate=0.99` hardcoded directly in the code.
-I immediately knew this was wrong — dropout of 0.99
+I immediately knew this was wrong, dropout of 0.99
 means 99% of neurons are randomly disabled during each
 training step. Only 1% of the network is active at any
 time which is far too aggressive for any meaningful
@@ -693,7 +689,7 @@ passed as a kwarg which models do not accept.
 **What was wrong:**
 With 99% dropout the model has almost no capacity to
 process information during training. Each forward pass
-uses only 1% of neurons — completely insufficient to
+uses only 1% of neurons, completely insufficient to
 learn complex medical image patterns. Also hardcoding
 this value meant it could not be controlled from config
 which violated the config-driven design principle.
@@ -724,17 +720,17 @@ During my first full benchmark run something unexpected
 happened with ResNet18 on cells. I watched the validation
 accuracy carefully during training and saw it reach 96.34%
 at epoch 4. But by epoch 10 it had dropped badly to 92.10%.
-When the final test accuracy printed it was only 68.14% —
+When the final test accuracy printed it was only 68.14%,
 much worse than what I had seen during training.
 
 I realised the problem immediately. The code was always
 using the weights from the very last epoch for test
-evaluation. But the last epoch was not the best epoch —
+evaluation. But the last epoch was not the best epoch,
 the model had peaked at epoch 4 and then overfit in later
 epochs. We were throwing away the best version of the model
 and evaluating with a degraded one instead.
 
-This is not a bug in the original code — it ran correctly.
+This is not a bug in the original code, it ran correctly.
 But it was a serious practical problem that made results
 unreliable and inconsistent between runs. I decided to
 fix it because without it the test accuracy was essentially
@@ -745,14 +741,14 @@ I added best weight tracking to the fit() method in the
 Trainer class. After each epoch if the validation accuracy
 is better than anything seen before I save a deep copy
 of the model weights. After training finishes I restore
-these best weights before returning — so test evaluation
+these best weights before returning, so test evaluation
 always uses the best model found during training not
 the final potentially degraded one.
 
 I used `copy.deepcopy()` specifically rather than a simple
 assignment because PyTorch model weights are mutable objects.
 A simple assignment would just create another reference to
-the same weights — if training continued those weights would
+the same weights, if training continued those weights would
 change. deepcopy makes a completely independent snapshot
 that stays frozen even as training continues.
 
