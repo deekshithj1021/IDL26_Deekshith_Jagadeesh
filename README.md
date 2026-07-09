@@ -20,8 +20,7 @@ the missing configuration and testing infrastructure, added
 a lightweight green model called PlantNet, and implemented
 transfer learning for the scarce organs dataset.
 
-The pipeline classifies medical images across four datasets
-— cells, chest, lesions and orgs — using three restored
+The pipeline classifies medical images across four datasets, cells, chest, lesions and orgs, using three restored
 architectures (AlexNet, VGG16, ResNet18) and one new
 architecture we designed (PlantNet).
 
